@@ -2,11 +2,10 @@
 
 // Solidity files have to start with this pragma.
 // It will be used by the Solidity compiler to validate its version.
-pragma solidity ^0.7.0;
+pragma solidity ^0.7.3;
 
 // We import this library to be able to use console.log
 import "hardhat/console.sol";
-
 
 // This is the main building block for smart contracts.
 contract Token {
@@ -16,12 +15,16 @@ contract Token {
 
     // The fixed amount of tokens stored in an unsigned integer type variable.
     uint256 public totalSupply = 1000000;
+    uint256 public constant accruedPerSecond = 1;
 
     // An address type variable is used to store ethereum accounts.
     address public owner;
 
     // A mapping is a key/value map. Here we store each account balance.
     mapping(address => uint256) balances;
+
+    /// @dev Timestamp since human started accruing.
+    mapping(address => uint256) public accruedSince;
 
     /**
      * Contract initialization.
@@ -33,6 +36,7 @@ contract Token {
         // The totalSupply is assigned to transaction sender, which is the account
         // that is deploying the contract.
         balances[msg.sender] = totalSupply;
+        accruedSince[msg.sender] = block.timestamp;
         owner = msg.sender;
     }
 
@@ -59,6 +63,20 @@ contract Token {
         // Transfer the amount.
         balances[msg.sender] -= amount;
         balances[to] += amount;
+
+        if (accruedSince[to] == 0) {
+            accruedSince[to] = block.timestamp;
+        }
+    }
+
+    function getAccruedValue(address _human)
+        public
+        view
+        returns (uint256 accrued)
+    {
+        // If this human have not started to accrue, or is not registered, return 0.
+        if (accruedSince[_human] == 0) return 0;
+        else return accruedPerSecond * (block.timestamp - accruedSince[_human]);
     }
 
     /**
@@ -67,7 +85,8 @@ contract Token {
      * The `view` modifier indicates that it doesn't modify the contract's
      * state, which allows us to call it without executing a transaction.
      */
-    function balanceOf(address account) external view returns (uint256) {
-        return balances[account];
+    function balanceOf(address account) public view returns (uint256) {
+        // return balances[account];
+        return getAccruedValue(account) + balances[account];
     }
 }
